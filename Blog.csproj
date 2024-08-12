@@ -1,10 +1,21 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="NovaPasta\**" />
+    <Compile Remove="ViewModels\NovaPasta\**" />
+    <Content Remove="NovaPasta\**" />
+    <Content Remove="ViewModels\NovaPasta\**" />
+    <EmbeddedResource Remove="NovaPasta\**" />
+    <EmbeddedResource Remove="ViewModels\NovaPasta\**" />
+    <None Remove="NovaPasta\**" />
+    <None Remove="ViewModels\NovaPasta\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.7" />
