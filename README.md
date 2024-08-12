@@ -12,5 +12,5 @@ Este repositório contém o código fonte do blog , desenvolvido utilizando a pl
 
 ## Estrutura do Projeto
 * **Pages:** Contém as páginas do blog, como Home, Post, Role, User e Tag.
-* **Models:** Define os modelos de dados para posts.
+* **Models:** Define os modelos de dados para de entrada e saida.
 * **Data:** Contém a lógica de acesso ao banco de dados.
