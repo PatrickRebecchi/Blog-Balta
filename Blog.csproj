@@ -6,24 +6,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="NovaPasta\**" />
-    <Compile Remove="ViewModels\NovaPasta\**" />
-    <Content Remove="NovaPasta\**" />
-    <Content Remove="ViewModels\NovaPasta\**" />
-    <EmbeddedResource Remove="NovaPasta\**" />
-    <EmbeddedResource Remove="ViewModels\NovaPasta\**" />
-    <None Remove="NovaPasta\**" />
-    <None Remove="ViewModels\NovaPasta\**" />
-  </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.7" />
+    <PackageReference Include="SecureIdentity" Version="1.0.4" />
   </ItemGroup>
 
 </Project>

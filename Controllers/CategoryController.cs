@@ -1,134 +1,108 @@
 ﻿using Blog.Data;
 using Blog.Extensions;
 using Blog.Models;
+using Blog.Services;
 using Blog.ViewModels;
+using Blog.ViewModels.Accounts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SecureIdentity.Password;
+
 
 namespace Blog.Controllers;
 
-public class CategoryController : Controller
+
+[ApiController]
+public class AccountController : ControllerBase
 {
-    [HttpGet("v1/categories")]
-    public async Task<IActionResult> GetAsync
-        ([FromServices] BlogDataContext context)
-    {   try
-        {var categories = await context.Categories.ToListAsync();
-            return Ok(new ResultViewModel<List<Category>>(categories));
-        }
-        catch 
-        {
-            return StatusCode(500, new ResultViewModel<List<Category>>("05XE04 - Erro interno do servidor"));
-        }
-    }
-
-    [HttpGet("v1/categories/{id:int}")]
-    public async Task<IActionResult> GetByIdAsync
-        ([FromRoute] int id,
-        [FromServices] BlogDataContext context)
-    {
-        try
-        {var category = await context
-            .Categories
-            .FirstOrDefaultAsync(x=>x.Id == id);
-        if (category == null)
-            return NotFound(new ResultViewModel<Category>("Conteúdo não encontrado"));
-
-            return Ok(new ResultViewModel<Category>(category));
-        }
-        catch
-        {
-            return StatusCode(500, new ResultViewModel<Category>("05XE05 - Falha interna no servidor"));
-        }
-    }
-
-    [HttpPost("v1/categories")]
-    public async Task<IActionResult> PostAsync
-        ([FromBody] EditorCategoryViewModel model,
-        [FromServices] BlogDataContext context)
+    [HttpPost("v1/accounts/")]
+    public async Task<IActionResult> Post(
+        [FromBody] RegisterViewModel model,
+        [FromServices] BlogDataContext context,
+        [FromServices] EmailService emailService)
     {
         if (!ModelState.IsValid)
-            return BadRequest(new ResultViewModel<Category>(ModelState.GetErrors()));
-        
+            return BadRequest(new ResultViewModel<string>(ModelState.GetErrors()));
+
+        var user = new User
+        {
+            Name = model.Name,
+            Email = model.Email,
+            Slug = model.Email.Replace("@", "-").Replace(".", "-")
+        };
+
+        var password = PasswordGenerator.Generate(25);
+        user.PasswordHash = PasswordHasher.Hash(password);
+
         try
         {
-            var category = new Category
+            await context.Users.AddAsync(user);
+            await context.SaveChangesAsync();
+
+            bool emailEnviado = emailService.Send(
+                user.Name,
+                user.Email,
+                "Bem vindo ao blog!",
+                $"Sua senha é {password}. Este email foi enviado em {DateTime.Now:dd/MM/yyyy HH:mm:ss}"
+            );
+
+            if (emailEnviado)
             {
-                Id = 0,
-                Name = model.Name,
-                Slug = model.Slug.ToLower(),
-            };
-            await context.Categories.AddAsync(category);
-            await context.SaveChangesAsync();
-
-            return Created($"/v1/categories/{category.Id}", new ResultViewModel<Category>(category));
+                return Ok(new ResultViewModel<dynamic>(new
+                {
+                    user = user.Email,
+                    message = "Usuário criado e email enviado com sucesso!"
+                }));
+            }
+            else
+            {
+                return Ok(new ResultViewModel<dynamic>(new
+                {
+                    user = user.Email,
+                    password,
+                    message = "Usuário criado, mas o envio de email falhou."
+                }));
+            }
         }
-        catch (DbUpdateException ex)
+        catch (DbUpdateException)
         {
-            return StatusCode(500, new ResultViewModel<Category>("05XE9 - Não foi possível incluir a categoria")); 
-        }
-        catch 
-        {
-            return StatusCode(500, new ResultViewModel<Category>("05X10 - Falha interna no servidor"));
-        }
-    }
-
-    [HttpPut("v1/categories/{id:int}")]
-    public async Task<IActionResult> PutAsync   
-        ([FromRoute] int id,
-        [FromBody] EditorCategoryViewModel model,
-        [FromServices] BlogDataContext context)
-    {
-        try
-        {
-            var category = await context
-                .Categories
-                .FirstOrDefaultAsync(x => x.Id == id);
-            if (category == null)
-                return NotFound();
-
-            category.Name = model.Name;
-            category.Slug = model.Slug;
-
-            context.Categories.Update(category);
-            await context.SaveChangesAsync();
-
-                return Ok(new ResultViewModel<Category>(category));
-        }
-        catch (DbUpdateException ex)
-        {
-            return StatusCode(500, "05XE8 - Não foi possivel alterar a categoria");
+            return StatusCode(400, new ResultViewModel<string>("05X99 - Este E-mail já está cadastrado"));
         }
         catch
         {
-            return StatusCode(500, "05XE11 - Erro interno do servidor");
+            return StatusCode(500, new ResultViewModel<string>("05X04 - Falha interna no servidor"));
         }
     }
 
-    [HttpDelete("v1/categories/{id:int}")]
-    public async Task<IActionResult> DeleteAsync
-        ([FromRoute] int id,
-        [FromServices] BlogDataContext context)
+    [HttpPost("v1/accounts/login")]
+    public async Task<IActionResult> Login(
+        [FromBody] LoginViewModel model,
+        [FromServices] BlogDataContext context,
+        [FromServices] TokenService tokenService)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(new ResultViewModel<string>(ModelState.GetErrors()));
+
+        var user = await context
+            .Users
+            .AsNoTracking()
+            .Include(x => x.Roles)
+            .FirstOrDefaultAsync(x => x.Email == model.Email);
+
+        if (user == null)
+            return StatusCode(401, new ResultViewModel<string>("Usuário ou senha inválidos"));
+
+        if (!PasswordHasher.Verify(user.PasswordHash, model.Password))
+            return StatusCode(401, new ResultViewModel<string>("Usuário ou senha inválidos"));
+
         try
-        {var category = await context
-            .Categories
-            .FirstOrDefaultAsync(x => x.Id == id);
-        if (category == null)
-            return NotFound(new ResultViewModel<Category>("Conteúdo não encontrado"));
-
-        context.Categories.Remove(category);
-        await context.SaveChangesAsync();
-
-            return Ok(new ResultViewModel<Category>(category));
-        }
-        catch (DbUpdateException ex)
         {
-            return StatusCode(500, new ResultViewModel<Category>("05XE7 - Não foi possível excluir a categoria"));
+            var token = tokenService.GenerateToken(user);
+            return Ok(new ResultViewModel<string>(token, null));
         }
-        catch 
+        catch
         {
-            return StatusCode(500, new ResultViewModel<Category>("05X12 - Falha interna no servidor"));
+            return StatusCode(500, new ResultViewModel<string>("05X04 - Falha interna no servidor"));
         }
     }
 }
